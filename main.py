@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from routers import apps
-from routers.auth import router as auth_router  # FIXED
+from routers.auth import router as auth_router  
 from database import Base, engine
 from fastapi.middleware.cors import CORSMiddleware
 

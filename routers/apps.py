@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from database import get_db
@@ -12,7 +13,7 @@ import requests
 
 router = APIRouter()
 
-# ✅ Use environment variables instead of hardcoding secrets
+# GitHub OAuth credentials
 GITHUB_CLIENT_ID = os.getenv("GITHUB_CLIENT_ID")
 GITHUB_CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET")
 
@@ -21,7 +22,7 @@ if not GITHUB_CLIENT_ID or not GITHUB_CLIENT_SECRET:
 
 
 # ---------------------------
-# GitHub OAuth
+# GitHub OAuth Login
 # ---------------------------
 
 @router.get("/github/login")
@@ -34,6 +35,10 @@ def github_login():
         )
     }
 
+
+# ---------------------------
+# GitHub OAuth Callback
+# ---------------------------
 
 @router.get("/github/callback")
 def github_callback(code: str, db: Session = Depends(get_db)):
@@ -53,8 +58,17 @@ def github_callback(code: str, db: Session = Depends(get_db)):
     if not token:
         raise HTTPException(status_code=400, detail="OAuth failed")
 
-    return {"access_token": token}
+    # Redirect back to frontend with token (frontend will store it)
+    frontend_url = "https://cloudhosting.soltryxsolutions.com/dashboard"
 
+    return RedirectResponse(
+        url=f"{frontend_url}?token={token}"
+    )
+
+
+# ---------------------------
+# GitHub Repositories
+# ---------------------------
 
 @router.get("/github/repos")
 def list_repos(token: str):

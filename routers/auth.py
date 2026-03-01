@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 
 router = APIRouter()
 
-SECRET_KEY = "CHANGE_THIS_SECRET_KEY"
+SECRET_KEY = "TESTING_123"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
 
