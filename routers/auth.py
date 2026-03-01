@@ -4,8 +4,14 @@ from database import get_db
 from models import User
 from pydantic import BaseModel
 import bcrypt
+from jose import jwt
+from datetime import datetime, timedelta
 
 router = APIRouter()
+
+SECRET_KEY = "CHANGE_THIS_SECRET_KEY"
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 60
 
 class UserRegister(BaseModel):
     email: str
@@ -16,10 +22,16 @@ class UserLogin(BaseModel):
     password: str
 
 
+def create_access_token(data: dict):
+    to_encode = data.copy()
+    expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    to_encode.update({"exp": expire})
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+
 @router.post("/register")
 def register(data: UserRegister, db: Session = Depends(get_db)):
 
-    # check if user already exists
     existing_user = db.query(User).filter(User.email == data.email).first()
     if existing_user:
         raise HTTPException(status_code=400, detail="Email already registered")
@@ -44,8 +56,9 @@ def login(data: UserLogin, db: Session = Depends(get_db)):
     if not bcrypt.checkpw(data.password.encode(), user.password.encode()):
         raise HTTPException(status_code=400, detail="Invalid email or password")
 
+    token = create_access_token({"sub": user.email})
+
     return {
-        "message": "login successful",
-        "user_id": user.id,
-        "email": user.email
+        "access_token": token,
+        "token_type": "bearer"
     }
