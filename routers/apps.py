@@ -3,72 +3,49 @@ from sqlalchemy.orm import Session
 from database import get_db
 from docker_manager import deploy_container
 from models import App
-import random
 import subprocess
-import os
-import shutil
 
 router = APIRouter()
 
 @router.post("/deploy")
 async def deploy_webhook(request: Request, db: Session = Depends(get_db)):
-    try:
-        payload = await request.json()
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid JSON payload")
 
-    # Validate payload
-    repository = payload.get("repository")
-    if not repository:
-        raise HTTPException(status_code=400, detail="No repository data")
+    payload = await request.json()
 
-    repo_name = repository.get("name")
-    repo_url = repository.get("clone_url")
+    # GitHub push event validation
+    repo = payload.get("repository", {}).get("name")
     ref = payload.get("ref")
 
-    if not repo_name or not repo_url or not ref:
-        raise HTTPException(status_code=400, detail="Missing repository info")
+    if not repo or not ref:
+        raise HTTPException(status_code=400, detail="invalid payload")
 
     # Only deploy main branch
     if ref != "refs/heads/main":
         return {"message": "ignored"}
 
-    workdir = f"/tmp/{repo_name}"
+    # Pull latest code
+    subprocess.run(["git", "pull", "origin", "main"], check=True)
 
-    # Clean previous clone
-    if os.path.exists(workdir):
-        shutil.rmtree(workdir)
+    # Build Docker image from repo
+    subprocess.run(["docker", "build", "-t", repo, "."], check=True)
 
-    try:
-        # Clone repo
-        subprocess.run(["git", "clone", repo_url, workdir], check=True)
+    # Deploy container
+    port = 9000
+    container_name = f"{repo}-latest"
 
-        # Build Docker image
-        subprocess.run(["docker", "build", "-t", repo_name, workdir], check=True)
+    container_id = deploy_container(
+        image_name=repo,
+        container_name=container_name,
+        port=port
+    )
 
-        # Deploy container
-        port = random.randint(9000, 9999)
-        container_name = f"{repo_name}-{port}"
+    # Save DB record
+    app = App(name=repo, container_id=container_id, port=port)
+    db.add(app)
+    db.commit()
 
-        container_id = deploy_container(
-            image_name=repo_name,
-            container_name=container_name,
-            port=port
-        )
-
-        # Save deployment record
-        app = App(name=repo_name, container_id=container_id, port=port)
-        db.add(app)
-        db.commit()
-
-        return {
-            "message": "deployed",
-            "container_id": container_id,
-            "port": port
-        }
-
-    except subprocess.CalledProcessError as e:
-        raise HTTPException(status_code=500, detail=f"Build error: {str(e)}")
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Deployment error: {str(e)}")
+    return {
+        "message": "deployed",
+        "container_id": container_id,
+        "port": port
+    }
