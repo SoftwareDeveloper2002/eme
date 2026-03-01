@@ -6,7 +6,6 @@ router = APIRouter()
 
 @router.post("/deploy")
 def deploy_app(app_name: str):
-
     port = random.randint(9000, 9999)
     container_name = f"{app_name}-{port}"
 
