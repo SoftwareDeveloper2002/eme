@@ -1,0 +1,11 @@
+from sqlalchemy import Column, Integer, String
+from database import Base
+
+class App(Base):
+    __tablename__ = "apps"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String)
+    container_name = Column(String)
+    port = Column(Integer)
+    owner_id = Column(Integer)
