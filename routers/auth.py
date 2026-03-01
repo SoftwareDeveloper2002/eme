@@ -1,22 +1,10 @@
-from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
-from database import get_db
-from models import User
-from pydantic import BaseModel
-import bcrypt
+from fastapi import FastAPI
+from routers import apps
+from routers.auth import router as auth_router  # FIXED
+from database import Base, engine
 
-router = APIRouter()
+app = FastAPI()
 
-class UserRegister(BaseModel):
-    email: str
-    password: str
-
-@router.post("/register")
-def register(data: UserRegister, db: Session = Depends(get_db)):
-    hashed = bcrypt.hashpw(data.password.encode(), bcrypt.gensalt()).decode()
-
-    user = User(email=data.email, password=hashed)
-    db.add(user)
-    db.commit()
-
-    return {"message": "registered"}
+Base.metadata.create_all(bind=engine)
+app.include_router(auth_router, prefix="/auth")
+app.include_router(apps.router)
