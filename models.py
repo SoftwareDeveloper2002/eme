@@ -8,7 +8,7 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, unique=True, index=True)
     password = Column(String)
-
+    github_token = Column(String)
     apps = relationship("App", back_populates="owner")
 
 
